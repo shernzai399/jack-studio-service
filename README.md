@@ -75,6 +75,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 Run [supabase/schema.sql](./supabase/schema.sql) in the Supabase SQL editor before connecting live data.
+Then run [supabase/seed.sql](./supabase/seed.sql) to create the outlets, Hub, and Warehouse locations.
+For the current GitHub Pages version without login, also run [supabase/github-pages-public-policies.sql](./supabase/github-pages-public-policies.sql).
 
 For GitHub Pages, add these repository secrets before deploying:
 
