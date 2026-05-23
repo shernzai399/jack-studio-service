@@ -14,9 +14,13 @@
 - `PATCH /api/store-requests/[id]`: Approve, reject, process, send out, or mark received.
 
 ## Inventory
-- `GET /api/inventory`: List inventory by role and store scope.
-- `PATCH /api/inventory/[id]`: Update stock counts, reserved quantity, and reorder level.
-- `GET /api/inventory/low-stock`: List rows where `quantity_on_hand <= reorder_level`.
+- `GET /api/inventory/products`: List SKUs and product master data.
+- `POST /api/inventory/products`: Create SKU with category, color, size, price, image, and status.
+- `POST /api/inventory/stock-in`: Add quantity to a location and automatically record `stock_in`.
+- `POST /api/inventory/stock-out`: Transfer quantity from one location to another and automatically record `transfer`.
+- `POST /api/inventory/adjustment`: Apply manual quantity correction and automatically record `adjustment`.
+- `GET /api/inventory/movements`: List stock movement history.
+- `GET /api/inventory/low-stock`: List rows where `quantity <= reorder_level`.
 
 ## Admin
 - `GET /api/admin/users`

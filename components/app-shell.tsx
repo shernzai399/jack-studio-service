@@ -1,12 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Boxes, ClipboardList, LayoutDashboard, PackageSearch, Settings } from "lucide-react";
+import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, PackagePlus, PackageSearch, Settings, SlidersHorizontal } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/service-orders/new", label: "New Service", icon: ClipboardList },
   { href: "/store-requests/new", label: "Store Request", icon: Boxes },
-  { href: "/inventory", label: "Inventory", icon: PackageSearch },
+  { href: "/inventory", label: "Inventory Dashboard", icon: PackageSearch },
+  { href: "/inventory/products", label: "Product List", icon: Boxes },
+  { href: "/inventory/stock-in", label: "Add Stock", icon: PackagePlus },
+  { href: "/inventory/stock-out", label: "Stock Out", icon: ArrowLeftRight },
+  { href: "/inventory/movements", label: "Movement History", icon: ClipboardList },
+  { href: "/inventory/adjustment", label: "Stock Adjustment", icon: SlidersHorizontal },
   { href: "/admin/permissions", label: "Permissions", icon: Settings }
 ];
 

@@ -20,7 +20,14 @@
 - `/store-requests/new`
 - `/store-requests/[id]`
 - `/store-requests/[id]/approval`
+
+## Inventory Stock Management Module
 - `/inventory`
+- `/inventory/products`
+- `/inventory/stock-in`
+- `/inventory/stock-out`
+- `/inventory/movements`
+- `/inventory/adjustment`
 - `/inventory/low-stock`
 - `/backorders`
 

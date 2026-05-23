@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/app-shell";
 import { InventoryModule } from "@/app/inventory/inventory-module";
 
-export default function InventoryPage() {
+export default function MovementsPage() {
   return (
     <AppShell>
-      <InventoryModule view="dashboard" />
+      <InventoryModule view="movements" />
     </AppShell>
   );
 }

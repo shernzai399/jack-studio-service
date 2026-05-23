@@ -46,6 +46,9 @@ export type Permission =
   | "store_request:fulfill"
   | "inventory:view"
   | "inventory:update"
+  | "inventory:stock_in"
+  | "inventory:stock_out"
+  | "inventory:adjust"
   | "admin:manage_users";
 
 export type ServiceOrder = {
@@ -78,4 +81,46 @@ export type InventoryRow = {
   onHand: number;
   reserved: number;
   reorderLevel: number;
+};
+
+export type ProductStatus = "active" | "inactive" | "discontinued";
+export type LocationType = "Hub" | "Warehouse" | "Store";
+export type MovementType = "stock_in" | "stock_out" | "transfer" | "adjustment";
+
+export type Product = {
+  id: string;
+  sku: string;
+  productName: string;
+  category: string;
+  color: string;
+  size: string;
+  costPrice: number;
+  sellingPrice: number;
+  imageUrl: string;
+  status: ProductStatus;
+};
+
+export type StockLocation = {
+  id: string;
+  locationName: string;
+  locationType: LocationType;
+};
+
+export type StockBalance = {
+  productId: string;
+  locationId: string;
+  quantity: number;
+};
+
+export type StockMovement = {
+  id: string;
+  productId: string;
+  movementType: MovementType;
+  quantity: number;
+  fromLocationId: string | null;
+  toLocationId: string | null;
+  reason: string;
+  pic: string;
+  remarks: string;
+  createdAt: string;
 };

@@ -27,7 +27,10 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "store_request:approve",
     "store_request:fulfill",
     "inventory:view",
-    "inventory:update"
+    "inventory:update",
+    "inventory:stock_in",
+    "inventory:stock_out",
+    "inventory:adjust"
   ],
   super_admin: [
     "service:create",
@@ -40,6 +43,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "store_request:fulfill",
     "inventory:view",
     "inventory:update",
+    "inventory:stock_in",
+    "inventory:stock_out",
+    "inventory:adjust",
     "admin:manage_users"
   ]
 };

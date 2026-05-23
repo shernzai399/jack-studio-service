@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { assertPermission } from "@/lib/rbac";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export async function POST(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    assertPermission(user.role, "inventory:stock_out");
+
+    const body = await request.json();
+    const supabase = createSupabaseServerClient();
+
+    const { error } = await supabase.rpc("apply_stock_transfer", {
+      p_product_id: body.product_id,
+      p_from_location_id: body.from_location_id,
+      p_to_location_id: body.to_location_id,
+      p_quantity: body.quantity,
+      p_pic: body.pic ?? user.email,
+      p_remarks: body.remarks
+    });
+
+    if (error) throw error;
+    return NextResponse.json({ ok: true }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unexpected error";
+}

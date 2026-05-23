@@ -1,4 +1,12 @@
-import type { InventoryRow, ServiceOrder, StoreRequest } from "@/lib/types";
+import type {
+  InventoryRow,
+  Product,
+  ServiceOrder,
+  StockBalance,
+  StockLocation,
+  StockMovement,
+  StoreRequest
+} from "@/lib/types";
 
 export const stores = [
   "Aeon Bukit Tinggi",
@@ -109,5 +117,91 @@ export const inventoryRows: InventoryRow[] = [
     onHand: 1,
     reserved: 0,
     reorderLevel: 6
+  }
+];
+
+export const stockLocations: StockLocation[] = [
+  { id: "loc-hub", locationName: "Hub", locationType: "Hub" },
+  { id: "loc-warehouse", locationName: "Warehouse", locationType: "Warehouse" },
+  ...stores.map((store, index) => ({
+    id: `loc-store-${index + 1}`,
+    locationName: store,
+    locationType: "Store" as const
+  }))
+];
+
+export const products: Product[] = [
+  {
+    id: "prod-1",
+    sku: "JS-LG-022",
+    productName: "Carry-on wheel set",
+    category: "Luggage Parts",
+    color: "Black",
+    size: "Standard",
+    costPrice: 18,
+    sellingPrice: 45,
+    imageUrl: "",
+    status: "active"
+  },
+  {
+    id: "prod-2",
+    sku: "JS-LC-014",
+    productName: "Premium leather balm",
+    category: "Leather Care",
+    color: "Natural",
+    size: "100ml",
+    costPrice: 22,
+    sellingPrice: 68,
+    imageUrl: "",
+    status: "active"
+  },
+  {
+    id: "prod-3",
+    sku: "JS-HC-107",
+    productName: "Brass initial charm",
+    category: "Accessories",
+    color: "Brass",
+    size: "One size",
+    costPrice: 9,
+    sellingPrice: 29,
+    imageUrl: "",
+    status: "active"
+  }
+];
+
+export const stockBalances: StockBalance[] = [
+  { productId: "prod-1", locationId: "loc-hub", quantity: 100 },
+  { productId: "prod-1", locationId: "loc-store-1", quantity: 10 },
+  { productId: "prod-1", locationId: "loc-store-6", quantity: 4 },
+  { productId: "prod-2", locationId: "loc-warehouse", quantity: 55 },
+  { productId: "prod-2", locationId: "loc-store-4", quantity: 12 },
+  { productId: "prod-3", locationId: "loc-hub", quantity: 30 },
+  { productId: "prod-3", locationId: "loc-store-3", quantity: 1 }
+];
+
+export const stockMovements: StockMovement[] = [
+  {
+    id: "mov-1",
+    productId: "prod-1",
+    movementType: "stock_in",
+    quantity: 100,
+    fromLocationId: null,
+    toLocationId: "loc-hub",
+    reason: "New stock arrival",
+    pic: "Super Admin",
+    remarks: "Initial incoming stock",
+    createdAt: "2026-05-24"
+  },
+  {
+    id: "mov-2",
+    productId: "prod-1",
+    movementType: "transfer",
+    quantity: 10,
+    fromLocationId: "loc-hub",
+    toLocationId: "loc-store-1",
+    reason: "Store replenishment",
+    pic: "Super Admin",
+    remarks: "Transfer to Aeon Bukit Tinggi",
+    createdAt: "2026-05-24"
   }
 ];

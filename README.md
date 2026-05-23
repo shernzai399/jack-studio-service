@@ -54,7 +54,7 @@ Next.js starter app for connecting 13 JACK STUDIO retail outlets with a centrali
 - Service form: [app/service-orders/new/page.tsx](./app/service-orders/new/page.tsx)
 - Store request form: [app/store-requests/new/page.tsx](./app/store-requests/new/page.tsx)
 - Inventory view: [app/inventory/page.tsx](./app/inventory/page.tsx)
-- Super Admin stock control: [app/inventory/stock-manager.tsx](./app/inventory/stock-manager.tsx)
+- Inventory stock management module: [app/inventory/inventory-module.tsx](./app/inventory/inventory-module.tsx)
 
 ## Setup
 
@@ -90,6 +90,6 @@ For production with API routes and Supabase auth, deploy the same repository to 
 - Inventory Admin
 - Super Admin
 
-The public demo signs in as Super Admin so stock can be added from the Inventory page. Demo stock changes are saved in the browser with `localStorage`.
+The public demo signs in as Super Admin so stock can be added, transferred, adjusted, and reviewed from the Inventory pages. Demo stock changes are saved in the browser with `localStorage`.
 
 The app-level permission map is in [lib/rbac.ts](./lib/rbac.ts), and Supabase row-level security policies mirror those access boundaries in the schema.
