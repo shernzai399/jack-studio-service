@@ -4,6 +4,7 @@ import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, PackagePlus, Pac
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/service-orders", label: "Service List", icon: ClipboardList },
   { href: "/service-orders/new", label: "New Service", icon: ClipboardList },
   { href: "/store-requests/new", label: "Store Request", icon: Boxes },
   { href: "/inventory", label: "Inventory Dashboard", icon: PackageSearch },
