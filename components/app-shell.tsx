@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <h2 className="text-xl font-semibold text-ink">Central Service Operations</h2>
             </div>
             <div className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-moss">
-              Role preview: Service Admin
+              Signed in as: Super Admin
             </div>
           </div>
         </header>
