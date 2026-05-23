@@ -1,15 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
+import type { ServiceOrder } from "@/lib/types";
 import { serviceOrderStatuses } from "@/lib/types";
-import { loadServiceOrders, saveServiceOrders } from "@/app/service-orders/service-order-store";
+import { loadServiceOrders } from "@/app/service-orders/service-order-store";
 
 export function ServiceOrderList() {
-  const [orders, setOrders] = useState(loadServiceOrders);
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [storeFilter, setStoreFilter] = useState("All outlets");
   const [statusFilter, setStatusFilter] = useState("All statuses");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    refreshOrders();
+  }, []);
+
+  async function refreshOrders() {
+    setIsLoading(true);
+    setError("");
+    try {
+      setOrders(await loadServiceOrders());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load service orders.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const stores = useMemo(
     () => Array.from(new Set(orders.map((order) => order.storeName))).sort(),
@@ -24,13 +43,6 @@ export function ServiceOrderList() {
 
   const openOrders = orders.filter((order) => !["Completed", "Cancelled"].includes(order.status)).length;
   const waitingReview = orders.filter((order) => order.status === "Waiting Review" || order.status === "New Request").length;
-
-  function resetDemoOrders() {
-    window.localStorage.removeItem("jack-studio-service-orders");
-    const nextOrders = loadServiceOrders();
-    setOrders(nextOrders);
-    saveServiceOrders(nextOrders);
-  }
 
   return (
     <div className="grid gap-6">
@@ -59,11 +71,14 @@ export function ServiceOrderList() {
             <Link href="/service-orders/new" className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white hover:bg-moss">
               Add new service
             </Link>
-            <button type="button" onClick={resetDemoOrders} className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-linen">
-              Reset demo list
+            <button type="button" onClick={refreshOrders} className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-linen">
+              Refresh list
             </button>
           </div>
         </div>
+
+        {isLoading && <p className="mb-4 text-sm text-moss">Loading service orders...</p>}
+        {error && <p className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
         <div className="mb-4 grid gap-3 md:grid-cols-2">
           <select className="min-h-10 rounded-md border border-black/15 bg-white px-3 text-sm" value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)}>
@@ -91,7 +106,7 @@ export function ServiceOrderList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/10">
-              {filteredOrders.map((order) => (
+              {!isLoading && filteredOrders.map((order) => (
                 <tr key={order.id}>
                   <td className="py-3 font-medium">{order.orderNo}</td>
                   <td>{order.customerName}</td>
@@ -103,6 +118,11 @@ export function ServiceOrderList() {
                   <td>{order.updatedAt}</td>
                 </tr>
               ))}
+              {!isLoading && filteredOrders.length === 0 && (
+                <tr>
+                  <td className="py-6 text-center text-moss" colSpan={8}>No service orders found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -1,22 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowLeftRight, ClipboardCheck, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Badge, Card, Field, PrimaryButton, inputClass } from "@/components/ui";
 import {
-  products as initialProducts,
-  stockBalances as initialBalances,
-  stockLocations,
-  stockMovements as initialMovements
-} from "@/lib/mock-data";
-import type { MovementType, Product, StockBalance, StockMovement } from "@/lib/types";
+  applyStockAdjustment,
+  applyStockIn,
+  applyStockTransfer,
+  fetchInventoryData,
+  upsertProduct
+} from "@/lib/supabase/data";
+import type { Product, StockBalance, StockLocation, StockMovement } from "@/lib/types";
 
 type InventoryView = "dashboard" | "products" | "stock-in" | "stock-out" | "movements" | "adjustment";
 
-const productsKey = "jack-studio-service-products";
-const balancesKey = "jack-studio-service-stock-balances";
-const movementsKey = "jack-studio-service-stock-movements";
 const lowStockThreshold = 5;
 
 const navItems: { href: string; label: string; view: InventoryView }[] = [
@@ -28,27 +26,14 @@ const navItems: { href: string; label: string; view: InventoryView }[] = [
   { href: "/inventory/adjustment", label: "Adjustment", view: "adjustment" }
 ];
 
-function readStorage<T>(key: string, fallback: T) {
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  const value = window.localStorage.getItem(key);
-  if (!value) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 export function InventoryModule({ view }: { view: InventoryView }) {
-  const [products, setProducts] = useState<Product[]>(() => readStorage(productsKey, initialProducts));
-  const [balances, setBalances] = useState<StockBalance[]>(() => readStorage(balancesKey, initialBalances));
-  const [movements, setMovements] = useState<StockMovement[]>(() => readStorage(movementsKey, initialMovements));
+  const [products, setProducts] = useState<Product[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [balances, setBalances] = useState<StockBalance[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
   const [stockInForm, setStockInForm] = useState({
     sku: "",
     productName: "",
@@ -59,28 +44,65 @@ export function InventoryModule({ view }: { view: InventoryView }) {
     costPrice: "",
     sellingPrice: "",
     imageUrl: "",
-    locationId: "loc-hub",
+    locationId: "",
     pic: "Super Admin",
     remarks: ""
   });
   const [stockOutForm, setStockOutForm] = useState({
-    sourceLocationId: "loc-hub",
-    destinationLocationId: "loc-store-1",
-    productId: initialProducts[0]?.id ?? "",
+    sourceLocationId: "",
+    destinationLocationId: "",
+    productId: "",
     quantity: "1",
     transferDate: "2026-05-24",
     pic: "Super Admin",
     remarks: ""
   });
   const [adjustmentForm, setAdjustmentForm] = useState({
-    locationId: "loc-hub",
-    productId: initialProducts[0]?.id ?? "",
+    locationId: "",
+    productId: "",
     quantity: "0",
     reason: "Stock take mismatch",
     date: "2026-05-24",
     pic: "Super Admin",
     remarks: ""
   });
+
+  useEffect(() => {
+    refreshInventory();
+  }, []);
+
+  async function refreshInventory() {
+    setIsLoading(true);
+    setError("");
+    try {
+      const data = await fetchInventoryData();
+      setProducts(data.products);
+      setLocations(data.locations);
+      setBalances(data.balances);
+      setMovements(data.movements);
+
+      const hub = data.locations.find((location) => location.locationType === "Hub") ?? data.locations[0];
+      const firstStore = data.locations.find((location) => location.locationType === "Store") ?? data.locations[0];
+      const firstProduct = data.products[0];
+
+      setStockInForm((current) => ({ ...current, locationId: current.locationId || hub?.id || "" }));
+      setStockOutForm((current) => ({
+        ...current,
+        sourceLocationId: current.sourceLocationId || hub?.id || "",
+        destinationLocationId: current.destinationLocationId || firstStore?.id || "",
+        productId: current.productId || firstProduct?.id || ""
+      }));
+      setAdjustmentForm((current) => ({
+        ...current,
+        locationId: current.locationId || hub?.id || "",
+        productId: current.productId || firstProduct?.id || ""
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load inventory data.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const productTotals = useMemo(
     () => products.map((product) => ({
@@ -96,15 +118,6 @@ export function InventoryModule({ view }: { view: InventoryView }) {
   const lowStockItems = productTotals.filter((item) => item.total > 0 && item.total <= lowStockThreshold);
   const outOfStockItems = productTotals.filter((item) => item.total <= 0);
 
-  function persist(nextProducts: Product[], nextBalances: StockBalance[], nextMovements: StockMovement[]) {
-    setProducts(nextProducts);
-    setBalances(nextBalances);
-    setMovements(nextMovements);
-    window.localStorage.setItem(productsKey, JSON.stringify(nextProducts));
-    window.localStorage.setItem(balancesKey, JSON.stringify(nextBalances));
-    window.localStorage.setItem(movementsKey, JSON.stringify(nextMovements));
-  }
-
   function getProduct(productId: string) {
     return products.find((product) => product.id === productId);
   }
@@ -114,101 +127,46 @@ export function InventoryModule({ view }: { view: InventoryView }) {
       return "-";
     }
 
-    return stockLocations.find((location) => location.id === locationId)?.locationName ?? "-";
+    return locations.find((location) => location.id === locationId)?.locationName ?? "-";
   }
 
-  function updateBalance(nextBalances: StockBalance[], productId: string, locationId: string, delta: number) {
-    const index = nextBalances.findIndex(
-      (balance) => balance.productId === productId && balance.locationId === locationId
-    );
-
-    if (index >= 0) {
-      nextBalances[index] = {
-        ...nextBalances[index],
-        quantity: Math.max(0, nextBalances[index].quantity + delta)
-      };
-      return;
-    }
-
-    nextBalances.push({
-      productId,
-      locationId,
-      quantity: Math.max(0, delta)
-    });
-  }
-
-  function recordMovement(
-    nextMovements: StockMovement[],
-    productId: string,
-    movementType: MovementType,
-    quantity: number,
-    fromLocationId: string | null,
-    toLocationId: string | null,
-    reason: string,
-    pic: string,
-    remarks: string,
-    createdAt: string
-  ) {
-    nextMovements.unshift({
-      id: `mov-${Date.now()}`,
-      productId,
-      movementType,
-      quantity,
-      fromLocationId,
-      toLocationId,
-      reason,
-      pic,
-      remarks,
-      createdAt
-    });
-  }
-
-  function handleStockIn(event: FormEvent<HTMLFormElement>) {
+  async function handleStockIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const quantity = Number(stockInForm.quantity);
-    if (!stockInForm.sku.trim() || !stockInForm.productName.trim() || quantity <= 0) {
+    if (!stockInForm.sku.trim() || !stockInForm.productName.trim() || quantity <= 0 || !stockInForm.locationId) {
       return;
     }
 
-    const sku = stockInForm.sku.trim().toUpperCase();
-    const existingProduct = products.find((product) => product.sku.toUpperCase() === sku);
-    const product: Product = existingProduct ?? {
-      id: `prod-${Date.now()}`,
-      sku,
-      productName: stockInForm.productName.trim(),
-      category: stockInForm.category,
-      color: stockInForm.color.trim(),
-      size: stockInForm.size.trim(),
-      costPrice: Number(stockInForm.costPrice) || 0,
-      sellingPrice: Number(stockInForm.sellingPrice) || 0,
-      imageUrl: stockInForm.imageUrl.trim(),
-      status: "active"
-    };
-
-    const nextProducts = existingProduct
-      ? products.map((item) => item.id === product.id ? { ...product, ...item, productName: stockInForm.productName.trim() } : item)
-      : [product, ...products];
-    const nextBalances = [...balances];
-    const nextMovements = [...movements];
-
-    updateBalance(nextBalances, product.id, stockInForm.locationId, quantity);
-    recordMovement(
-      nextMovements,
-      product.id,
-      "stock_in",
-      quantity,
-      null,
-      stockInForm.locationId,
-      "New stock arrival",
-      stockInForm.pic,
-      stockInForm.remarks,
-      new Date().toISOString().slice(0, 10)
-    );
-    persist(nextProducts, nextBalances, nextMovements);
-    setStockInForm({ ...stockInForm, sku: "", productName: "", color: "", size: "", quantity: "1", costPrice: "", sellingPrice: "", imageUrl: "", remarks: "" });
+    setIsSaving(true);
+    setError("");
+    try {
+      const product = await upsertProduct({
+        sku: stockInForm.sku.trim().toUpperCase(),
+        productName: stockInForm.productName.trim(),
+        category: stockInForm.category,
+        color: stockInForm.color.trim(),
+        size: stockInForm.size.trim(),
+        costPrice: Number(stockInForm.costPrice) || 0,
+        sellingPrice: Number(stockInForm.sellingPrice) || 0,
+        imageUrl: stockInForm.imageUrl.trim()
+      });
+      await applyStockIn({
+        productId: product.id,
+        locationId: stockInForm.locationId,
+        quantity,
+        pic: stockInForm.pic,
+        remarks: stockInForm.remarks
+      });
+      setStockInForm({ ...stockInForm, sku: "", productName: "", color: "", size: "", quantity: "1", costPrice: "", sellingPrice: "", imageUrl: "", remarks: "" });
+      await refreshInventory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to add stock.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function handleStockOut(event: FormEvent<HTMLFormElement>) {
+  async function handleStockOut(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const quantity = Number(stockOutForm.quantity);
     const currentSource = balances.find(
@@ -219,54 +177,51 @@ export function InventoryModule({ view }: { view: InventoryView }) {
       return;
     }
 
-    const nextBalances = [...balances];
-    const nextMovements = [...movements];
-    updateBalance(nextBalances, stockOutForm.productId, stockOutForm.sourceLocationId, -quantity);
-    updateBalance(nextBalances, stockOutForm.productId, stockOutForm.destinationLocationId, quantity);
-    recordMovement(
-      nextMovements,
-      stockOutForm.productId,
-      "transfer",
-      quantity,
-      stockOutForm.sourceLocationId,
-      stockOutForm.destinationLocationId,
-      "Stock out / transfer",
-      stockOutForm.pic,
-      stockOutForm.remarks,
-      stockOutForm.transferDate
-    );
-    persist(products, nextBalances, nextMovements);
-    setStockOutForm({ ...stockOutForm, quantity: "1", remarks: "" });
+    setIsSaving(true);
+    setError("");
+    try {
+      await applyStockTransfer({
+        productId: stockOutForm.productId,
+        fromLocationId: stockOutForm.sourceLocationId,
+        toLocationId: stockOutForm.destinationLocationId,
+        quantity,
+        pic: stockOutForm.pic,
+        remarks: stockOutForm.remarks
+      });
+      setStockOutForm({ ...stockOutForm, quantity: "1", remarks: "" });
+      await refreshInventory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to transfer stock.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function handleAdjustment(event: FormEvent<HTMLFormElement>) {
+  async function handleAdjustment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const quantity = Number(adjustmentForm.quantity);
     if (!quantity) {
       return;
     }
 
-    const nextBalances = [...balances];
-    const nextMovements = [...movements];
-    updateBalance(nextBalances, adjustmentForm.productId, adjustmentForm.locationId, quantity);
-    recordMovement(
-      nextMovements,
-      adjustmentForm.productId,
-      "adjustment",
-      quantity,
-      quantity < 0 ? adjustmentForm.locationId : null,
-      quantity > 0 ? adjustmentForm.locationId : null,
-      adjustmentForm.reason,
-      adjustmentForm.pic,
-      adjustmentForm.remarks,
-      adjustmentForm.date
-    );
-    persist(products, nextBalances, nextMovements);
-    setAdjustmentForm({ ...adjustmentForm, quantity: "0", remarks: "" });
-  }
-
-  function resetDemoData() {
-    persist(initialProducts, initialBalances, initialMovements);
+    setIsSaving(true);
+    setError("");
+    try {
+      await applyStockAdjustment({
+        productId: adjustmentForm.productId,
+        locationId: adjustmentForm.locationId,
+        quantityAdjusted: quantity,
+        reason: adjustmentForm.reason,
+        pic: adjustmentForm.pic,
+        remarks: adjustmentForm.remarks
+      });
+      setAdjustmentForm({ ...adjustmentForm, quantity: "0", remarks: "" });
+      await refreshInventory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to adjust stock.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -286,6 +241,9 @@ export function InventoryModule({ view }: { view: InventoryView }) {
           </Link>
         ))}
       </div>
+
+      {isLoading && <p className="text-sm text-moss">Loading inventory data...</p>}
+      {error && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
       {view === "dashboard" && (
         <InventoryDashboard
@@ -330,12 +288,12 @@ export function InventoryModule({ view }: { view: InventoryView }) {
             <Field label="Product image URL"><input className={inputClass} value={stockInForm.imageUrl} onChange={(event) => setStockInForm({ ...stockInForm, imageUrl: event.target.value })} /></Field>
             <Field label="Stock location">
               <select className={inputClass} value={stockInForm.locationId} onChange={(event) => setStockInForm({ ...stockInForm, locationId: event.target.value })}>
-                {stockLocations.map((location) => <option key={location.id} value={location.id}>{location.locationName} ({location.locationType})</option>)}
+                {locations.map((location) => <option key={location.id} value={location.id}>{location.locationName} ({location.locationType})</option>)}
               </select>
             </Field>
             <Field label="PIC"><input className={inputClass} value={stockInForm.pic} onChange={(event) => setStockInForm({ ...stockInForm, pic: event.target.value })} /></Field>
             <Field label="Remarks"><input className={inputClass} value={stockInForm.remarks} onChange={(event) => setStockInForm({ ...stockInForm, remarks: event.target.value })} /></Field>
-            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">Add stock and record movement</PrimaryButton></div>
+            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">{isSaving ? "Saving..." : "Add stock and record movement"}</PrimaryButton></div>
           </form>
         </Card>
       )}
@@ -346,12 +304,12 @@ export function InventoryModule({ view }: { view: InventoryView }) {
           <form onSubmit={handleStockOut} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="From location">
               <select className={inputClass} value={stockOutForm.sourceLocationId} onChange={(event) => setStockOutForm({ ...stockOutForm, sourceLocationId: event.target.value })}>
-                {stockLocations.map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
+                {locations.map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
               </select>
             </Field>
             <Field label="Destination store">
               <select className={inputClass} value={stockOutForm.destinationLocationId} onChange={(event) => setStockOutForm({ ...stockOutForm, destinationLocationId: event.target.value })}>
-                {stockLocations.filter((location) => location.locationType === "Store").map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
+                {locations.filter((location) => location.locationType === "Store").map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
               </select>
             </Field>
             <Field label="SKU">
@@ -365,7 +323,7 @@ export function InventoryModule({ view }: { view: InventoryView }) {
             <div className="md:col-span-2 xl:col-span-3">
               <Field label="Remarks"><textarea className={inputClass} rows={3} value={stockOutForm.remarks} onChange={(event) => setStockOutForm({ ...stockOutForm, remarks: event.target.value })} /></Field>
             </div>
-            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">Transfer stock and record movement</PrimaryButton></div>
+            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">{isSaving ? "Saving..." : "Transfer stock and record movement"}</PrimaryButton></div>
           </form>
         </Card>
       )}
@@ -380,7 +338,7 @@ export function InventoryModule({ view }: { view: InventoryView }) {
           <form onSubmit={handleAdjustment} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Location">
               <select className={inputClass} value={adjustmentForm.locationId} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, locationId: event.target.value })}>
-                {stockLocations.map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
+                {locations.map((location) => <option key={location.id} value={location.id}>{location.locationName}</option>)}
               </select>
             </Field>
             <Field label="SKU">
@@ -403,13 +361,13 @@ export function InventoryModule({ view }: { view: InventoryView }) {
             <div className="md:col-span-2 xl:col-span-3">
               <Field label="Remarks"><textarea className={inputClass} rows={3} value={adjustmentForm.remarks} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, remarks: event.target.value })} /></Field>
             </div>
-            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">Save adjustment and record movement</PrimaryButton></div>
+            <div className="md:col-span-2 xl:col-span-3"><PrimaryButton type="submit">{isSaving ? "Saving..." : "Save adjustment and record movement"}</PrimaryButton></div>
           </form>
         </Card>
       )}
 
-      <button type="button" onClick={resetDemoData} className="w-fit rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-linen">
-        Reset demo inventory
+      <button type="button" onClick={refreshInventory} className="w-fit rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-linen">
+        Refresh inventory
       </button>
     </div>
   );

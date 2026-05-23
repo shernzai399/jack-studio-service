@@ -55,6 +55,8 @@ Next.js starter app for connecting 13 JACK STUDIO retail outlets with a centrali
 - Store request form: [app/store-requests/new/page.tsx](./app/store-requests/new/page.tsx)
 - Inventory view: [app/inventory/page.tsx](./app/inventory/page.tsx)
 - Inventory stock management module: [app/inventory/inventory-module.tsx](./app/inventory/inventory-module.tsx)
+- Browser Supabase client: [lib/supabase/client.ts](./lib/supabase/client.ts)
+- Supabase data operations: [lib/supabase/data.ts](./lib/supabase/data.ts)
 
 ## Setup
 
@@ -74,13 +76,22 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 Run [supabase/schema.sql](./supabase/schema.sql) in the Supabase SQL editor before connecting live data.
 
+For GitHub Pages, add these repository secrets before deploying:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+The static GitHub Pages app calls Supabase directly from the browser. Do not expose `SUPABASE_SERVICE_ROLE_KEY` to GitHub Pages or frontend code.
+
 ## Public Demo
 
-The static UI demo is deployed with GitHub Pages:
+The static app is deployed with GitHub Pages:
 
 https://shernzai399.github.io/jack-studio-service/
 
-For production with API routes and Supabase auth, deploy the same repository to Vercel and add the Supabase environment variables there.
+For production with server-side API routes, deploy the same repository to Vercel and add the Supabase environment variables there.
 
 ## Roles
 
@@ -90,6 +101,6 @@ For production with API routes and Supabase auth, deploy the same repository to 
 - Inventory Admin
 - Super Admin
 
-The public demo signs in as Super Admin so stock can be added, transferred, adjusted, and reviewed from the Inventory pages. Demo stock changes are saved in the browser with `localStorage`.
+The GitHub Pages app uses the public Supabase anon key and row-level security. Users must have Supabase Auth access that matches the policies in [supabase/schema.sql](./supabase/schema.sql).
 
 The app-level permission map is in [lib/rbac.ts](./lib/rbac.ts), and Supabase row-level security policies mirror those access boundaries in the schema.

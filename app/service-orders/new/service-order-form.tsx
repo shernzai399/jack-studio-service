@@ -1,22 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Camera, CircleDollarSign, UserRound } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/ui";
-import { stores } from "@/lib/mock-data";
 import { serviceOrderStatuses, type ServiceOrderStatus } from "@/lib/types";
 import { createServiceOrder } from "@/app/service-orders/service-order-store";
+import { fetchStoreNames } from "@/lib/supabase/data";
 
 export function ServiceOrderForm() {
   const [savedOrderNo, setSavedOrderNo] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [stores, setStores] = useState<string[]>([]);
   const [form, setForm] = useState({
     customerName: "",
     phone: "",
     email: "",
     preferredContact: "WhatsApp",
     serviceType: "Luggage repair",
-    storeName: stores[0],
+    storeName: "",
     itemBrand: "",
     itemModel: "",
     itemColor: "",
@@ -29,37 +32,69 @@ export function ServiceOrderForm() {
     quotationNotes: ""
   });
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    async function loadStores() {
+      try {
+        const storeNames = await fetchStoreNames();
+        setStores(storeNames);
+        setForm((current) => ({ ...current, storeName: current.storeName || storeNames[0] || "" }));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load outlets.");
+      }
+    }
+
+    loadStores();
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.customerName.trim()) {
       return;
     }
 
-    const order = createServiceOrder({
-      customerName: form.customerName.trim(),
-      storeName: form.storeName,
-      serviceType: form.serviceType,
-      status: form.status,
-      paymentStatus: form.paymentStatus,
-      quotationAmount: Number(form.quotationAmount) || 0
-    });
+    setIsSaving(true);
+    setError("");
+    try {
+      const order = await createServiceOrder({
+        customerName: form.customerName.trim(),
+        phone: form.phone,
+        email: form.email,
+        preferredContact: form.preferredContact,
+        storeName: form.storeName,
+        serviceType: form.serviceType,
+        itemBrand: form.itemBrand,
+        itemModel: form.itemModel,
+        itemColor: form.itemColor,
+        expectedCompletionDate: form.expectedCompletionDate,
+        itemDescription: form.itemDescription,
+        issueDescription: form.issueDescription,
+        status: form.status,
+        paymentStatus: form.paymentStatus,
+        quotationAmount: Number(form.quotationAmount) || 0,
+        quotationNotes: form.quotationNotes
+      });
 
-    setSavedOrderNo(order.orderNo);
-    setForm({
-      ...form,
-      customerName: "",
-      phone: "",
-      email: "",
-      itemBrand: "",
-      itemModel: "",
-      itemColor: "",
-      expectedCompletionDate: "",
-      itemDescription: "",
-      issueDescription: "",
-      quotationAmount: "",
-      status: "New Request",
-      quotationNotes: ""
-    });
+      setSavedOrderNo(order.orderNo);
+      setForm({
+        ...form,
+        customerName: "",
+        phone: "",
+        email: "",
+        itemBrand: "",
+        itemModel: "",
+        itemColor: "",
+        expectedCompletionDate: "",
+        itemDescription: "",
+        issueDescription: "",
+        quotationAmount: "",
+        status: "New Request",
+        quotationNotes: ""
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create service order.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -71,6 +106,11 @@ export function ServiceOrderForm() {
             <Link href="/service-orders" className="mt-2 inline-block text-sm font-semibold text-emerald-800 underline">
               View service order list
             </Link>
+          </Card>
+        )}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <p className="font-semibold text-red-900">{error}</p>
           </Card>
         )}
 
@@ -183,7 +223,7 @@ export function ServiceOrderForm() {
             <Field label="Quotation notes">
               <textarea className={inputClass} value={form.quotationNotes} onChange={(event) => setForm({ ...form, quotationNotes: event.target.value })} rows={5} />
             </Field>
-            <PrimaryButton type="submit">Create service order</PrimaryButton>
+            <PrimaryButton type="submit">{isSaving ? "Creating..." : "Create service order"}</PrimaryButton>
           </div>
         </Card>
       </aside>
