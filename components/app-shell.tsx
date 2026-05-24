@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, Menu, PackagePlus, PackageSearch, Settings, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, Settings, SlidersHorizontal, X } from "lucide-react";
+import { getInternalSession, signOutInternal, type InternalSession } from "@/lib/internal-auth";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -20,7 +22,34 @@ const navItems = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [session, setSession] = useState<InternalSession | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const currentSession = getInternalSession();
+    if (!currentSession) {
+      router.replace("/sign-in");
+      return;
+    }
+
+    setSession(currentSession);
+    setIsCheckingSession(false);
+  }, [router]);
+
+  function handleSignOut() {
+    signOutInternal();
+    router.replace("/sign-in");
+  }
+
+  if (isCheckingSession) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-pearl px-4">
+        <p className="text-sm text-moss">Checking sign in...</p>
+      </div>
+    );
+  }
 
   const navigation = (
     <nav className="grid gap-1 px-3">
@@ -94,8 +123,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <h2 className="text-xl font-semibold text-ink">Central Service Operations</h2>
               </div>
             </div>
-            <div className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-moss">
-              Signed in as: Super Admin
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-moss">
+              <span>Signed in as: {session?.displayName ?? "Super Admin"}</span>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex min-h-8 items-center gap-1 rounded-md border border-black/10 px-2 text-xs font-semibold text-ink hover:bg-linen"
+              >
+                <LogOut size={14} />
+                Sign out
+              </button>
             </div>
           </div>
         </header>
