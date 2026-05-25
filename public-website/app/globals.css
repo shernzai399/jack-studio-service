@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: #15110f;
+  background: #fff8eb;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+.hero-image {
+  background-image:
+    linear-gradient(90deg, rgba(35, 23, 19, 0.9), rgba(35, 23, 19, 0.62), rgba(35, 23, 19, 0.2)),
+    url("https://source.unsplash.com/Fn63GGFHNiM/1800x1200");
+  background-position: center;
+  background-size: cover;
+}
+
+.workshop-image {
+  background-image:
+    linear-gradient(180deg, rgba(35, 23, 19, 0.05), rgba(35, 23, 19, 0.48)),
+    url("https://source.unsplash.com/Z6bJJEhzByc/1200x900");
+  background-position: center;
+  background-size: cover;
+}
+
+.leather-texture {
+  background-image:
+    linear-gradient(135deg, rgba(35, 23, 19, 0.92), rgba(122, 75, 50, 0.82)),
+    url("https://source.unsplash.com/0o4WkIo8RnU/1200x900");
+  background-position: center;
+  background-size: cover;
+}
